@@ -55,7 +55,7 @@ func main() {
 func readKafka(partition int, client *graphigo.Client) {
 	r := getReader(partition)
 
-	dataSlice := make([]PriceData, 1)
+	dataSlice := make([]PriceData, 0)
 	var currentHour time.Time
 
 	for {
@@ -67,12 +67,17 @@ func readKafka(partition int, client *graphigo.Client) {
 
 		data := parseJSON(m.Value)
 
-		if data.Date.Hour() == currentHour.Hour() {
+		if currentHour == time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC) {
+			currentHour = time.Date(data.Date.Year(), data.Date.Month(), data.Date.Day(), data.Date.Hour(), 0, 0, 0, time.UTC)
+		}
 
+		if data.Date.Hour() == currentHour.Hour() {
+			dataSlice = append(dataSlice, *data)
 		} else {
+
 			aggregation := aggregateData(dataSlice, currentHour, partition)
 			sendSingle(aggregation, client)
-			dataSlice = make([]PriceData, 1)
+			dataSlice = []PriceData{*data}
 			currentHour = time.Date(data.Date.Year(), data.Date.Month(), data.Date.Day(), data.Date.Hour(), 0, 0, 0, time.UTC)
 		}
 	}
@@ -83,6 +88,12 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 	e5Sum := 0.0
 	e10Sum := 0.0
 	count := float64(len(data))
+
+	for _, element := range data {
+		dieselSum += element.PDiesel
+		e5Sum += element.PE5
+		e10Sum += element.PE10
+	}
 
 	return &Aggregation{
 		Hour:    hour,
