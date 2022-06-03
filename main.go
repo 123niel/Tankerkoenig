@@ -93,14 +93,17 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 	e10Count := 0
 
 	for _, element := range data {
+		dieselSum += element.PDiesel
+		e5Sum += element.PE5
+		e10Sum += element.PE10
 		if element.PDiesel != 0 {
-			dieselSum += element.PDiesel
+			dieselCount++
 		}
 		if element.PE5 != 0 {
-			e5Sum += element.PE5
+			e5Count++
 		}
 		if element.PE10 != 0 {
-			e10Sum += element.PE10
+			e10Count++
 		}
 	}
 
@@ -130,9 +133,16 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 
 func sendSingle(aggregation *Aggregation, client *graphigo.Client) {
 	fmt.Printf("send %v\n", *aggregation)
-	defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E5", aggregation.Region), Value: aggregation.PE5, Timestamp: aggregation.Hour})
-	defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E10", aggregation.Region), Value: aggregation.PE10, Timestamp: aggregation.Hour})
-	defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.Diesel", aggregation.Region), Value: aggregation.PDiesel, Timestamp: aggregation.Hour})
+	if aggregation.PE5 != math.NaN() {
+		defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E5", aggregation.Region), Value: aggregation.PE5, Timestamp: aggregation.Hour})
+	}
+	if aggregation.PE10 != math.NaN() {
+		defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E10", aggregation.Region), Value: aggregation.PE10, Timestamp: aggregation.Hour})
+	}
+	if aggregation.PDiesel != math.NaN() {
+		defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.Diesel", aggregation.Region), Value: aggregation.PDiesel, Timestamp: aggregation.Hour})
+	}
+
 }
 
 func getReader(partition int) *kafka.Reader {
