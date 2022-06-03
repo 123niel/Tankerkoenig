@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fgrosse/graphigo"
+	"math"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -87,7 +88,9 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 	dieselSum := 0.0
 	e5Sum := 0.0
 	e10Sum := 0.0
-	count := float64(len(data))
+	dieselCount := 0
+	e5Count := 0
+	e10Count := 0
 
 	for _, element := range data {
 		if element.PDiesel != 0 {
@@ -101,13 +104,28 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 		}
 	}
 
-	return &Aggregation{
-		Hour:    hour,
-		Region:  region,
-		PDiesel: dieselSum / count,
-		PE10:    e10Sum / count,
-		PE5:     e5Sum / count,
+	aggregation := Aggregation{
+		Hour:   hour,
+		Region: region,
 	}
+
+	if dieselCount > 0 {
+		aggregation.PDiesel = dieselSum / float64(dieselCount)
+	} else {
+		aggregation.PDiesel = math.NaN()
+	}
+	if e5Count > 0 {
+		aggregation.PE5 = e5Sum / float64(e5Count)
+	} else {
+		aggregation.PE5 = math.NaN()
+	}
+	if e10Count > 0 {
+		aggregation.PE10 = e10Sum / float64(e10Count)
+	} else {
+		aggregation.PE10 = math.NaN()
+	}
+
+	return &aggregation
 }
 
 func sendSingle(aggregation *Aggregation, client *graphigo.Client) {
