@@ -34,7 +34,9 @@ func main() {
 		Address: "10.50.15.52:2003",
 		Prefix:  "inf19a.dieschokohasen.tanker",
 	}
-	graphiteClient.Connect()
+	if err := graphiteClient.Connect(); err != nil {
+		panic(err) // do proper error handling
+	}
 	defer graphiteClient.Close()
 
 	done := make(chan bool)
@@ -57,7 +59,7 @@ func readPriceDataFromPartition(partition int) []PriceData {
 	conn := openConnection(partition)
 
 	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	batch := conn.ReadBatch(1e3, 1e9)
+	batch := conn.ReadBatch(1e3, 1e6)
 
 	b := make([]byte, 10e3) // 10KB max per message
 
@@ -90,6 +92,7 @@ func readPriceDataFromPartition(partition int) []PriceData {
 }
 
 func aggregate(data []PriceData) []Aggregation {
+	fmt.Sprintf("Aggregating for region %d", data[0].PostCode)
 	lastDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	pE5Sum := float64(0)
 	PE10Sum := float64(0)
@@ -124,11 +127,15 @@ func aggregate(data []PriceData) []Aggregation {
 }
 
 func sendData(aggregations []Aggregation, client *graphigo.Client) {
+	fmt.Sprintf("Sending for region %d", aggregations[0].Region)
+	region := aggregations[0].Region
+	counter := 0
 	for _, element := range aggregations {
 		metric := graphigo.Metric{Name: fmt.Sprintf("%d.E5", element.Region), Value: element.PE5, Timestamp: element.Hour}
-		client.Send(metric)
-		client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E10", element.Region), Value: element.PE10, Timestamp: element.Hour})
-		client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.Diesel", element.Region), Value: element.PDiesel, Timestamp: element.Hour})
+		defer client.Send(metric)
+		defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.E10", element.Region), Value: element.PE10, Timestamp: element.Hour})
+		defer client.Send(graphigo.Metric{Name: fmt.Sprintf("%d.Diesel", element.Region), Value: element.PDiesel, Timestamp: element.Hour})
+		fmt.Sprintf("Sent %d entries for region %d", counter, region)
 	}
 }
 
