@@ -90,9 +90,15 @@ func aggregateData(data []PriceData, hour time.Time, region int) *Aggregation {
 	count := float64(len(data))
 
 	for _, element := range data {
-		dieselSum += element.PDiesel
-		e5Sum += element.PE5
-		e10Sum += element.PE10
+		if element.PDiesel != 0 {
+			dieselSum += element.PDiesel
+		}
+		if element.PE5 != 0 {
+			e5Sum += element.PE5
+		}
+		if element.PE10 != 0 {
+			e10Sum += element.PE10
+		}
 	}
 
 	return &Aggregation{
